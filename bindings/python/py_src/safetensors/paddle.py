@@ -127,9 +127,14 @@ def load_file(filename: Union[str, os.PathLike], device="cpu") -> Dict[str, padd
 
 
 def _np2paddle(numpy_dict: Dict[str, np.ndarray], device: str = "cpu") -> Dict[str, paddle.Tensor]:
-    for k, v in numpy_dict.items():
-        numpy_dict[k] = paddle.to_tensor(v, place=device)
-    return numpy_dict
+    if device == "cpu":
+        for k, v in numpy_dict.items():
+            numpy_dict[k] = paddle.Tensor(v, zero_copy=True)
+        return numpy_dict
+    else:
+        for k, v in numpy_dict.items():
+            numpy_dict[k] = paddle.to_tensor(v, place=device)
+        return numpy_dict
 
 
 def _paddle2np(paddle_dict: Dict[str, paddle.Tensor]) -> Dict[str, np.array]:

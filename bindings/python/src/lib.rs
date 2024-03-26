@@ -22,6 +22,7 @@ static NUMPY_MODULE: GILOnceCell<Py<PyModule>> = GILOnceCell::new();
 static TENSORFLOW_MODULE: GILOnceCell<Py<PyModule>> = GILOnceCell::new();
 static FLAX_MODULE: GILOnceCell<Py<PyModule>> = GILOnceCell::new();
 static MLX_MODULE: GILOnceCell<Py<PyModule>> = GILOnceCell::new();
+static PADDLE_MODULE: GILOnceCell<Py<PyModule>> = GILOnceCell::new();
 
 fn prepare(tensor_dict: HashMap<String, &PyDict>) -> PyResult<HashMap<String, TensorView<'_>>> {
     let mut tensors = HashMap::with_capacity(tensor_dict.len());
@@ -211,6 +212,7 @@ enum Framework {
     Tensorflow,
     Flax,
     Mlx,
+    Paddle,
 }
 
 impl<'source> FromPyObject<'source> for Framework {
@@ -226,6 +228,9 @@ impl<'source> FromPyObject<'source> for Framework {
 
             "tf" => Ok(Framework::Tensorflow),
             "tensorflow" => Ok(Framework::Tensorflow),
+
+            "pd" => Ok(Framework::Paddle),
+            "paddle" => Ok(Framework::Paddle),
 
             "jax" => Ok(Framework::Flax),
             "flax" => Ok(Framework::Flax),
@@ -1024,6 +1029,16 @@ fn create_tensor(
                 module
                     .getattr(intern!(py, "core"))?
                     .getattr(intern!(py, "array"))?
+                    .call1((tensor,))?
+            }
+            Framework::Paddle => {
+                let module = Python::with_gil(|py| -> PyResult<&Py<PyModule>> {
+                    let module = PyModule::import(py, intern!(py, "paddle"))?;
+                    Ok(PADDLE_MODULE.get_or_init(py, || module.into()))
+                })?
+                .as_ref(py);
+                module
+                    .getattr(intern!(py, "to_tensor"))?
                     .call1((tensor,))?
             }
             Framework::Pytorch => {
