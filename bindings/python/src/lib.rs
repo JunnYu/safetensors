@@ -1038,7 +1038,7 @@ fn create_tensor(
                 })?
                 .as_ref(py);
                 module
-                    .getattr(intern!(py, "to_tensor"))?
+                    .getattr(intern!(py, "zero_copy_tensor"))?
                     .call1((tensor,))?
             }
             Framework::Pytorch => {

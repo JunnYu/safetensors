@@ -4,8 +4,11 @@ from typing import Dict, Optional, Union
 import numpy as np
 
 import paddle
-from safetensors import numpy
+from safetensors import numpy, safe_open
 
+def zero_copy_tensor(tensor):
+    return paddle.Tensor(tensor, zero_copy=True)
+paddle.zero_copy_tensor = zero_copy_tensor
 
 def save(tensors: Dict[str, paddle.Tensor], metadata: Optional[Dict[str, str]] = None) -> bytes:
     """
@@ -97,7 +100,6 @@ def load(data: bytes, device: str = "cpu") -> Dict[str, paddle.Tensor]:
     flat = numpy.load(data)
     return _np2paddle(flat, device)
 
-
 def load_file(filename: Union[str, os.PathLike], device="cpu") -> Dict[str, paddle.Tensor]:
     """
     Loads a safetensors file into paddle format.
@@ -121,10 +123,15 @@ def load_file(filename: Union[str, os.PathLike], device="cpu") -> Dict[str, padd
     loaded = load_file(file_path)
     ```
     """
-    flat = numpy.load_file(filename)
-    output = _np2paddle(flat, device)
-    return output
-
+    device = device.replace("cuda", "gpu")
+    raw_device = paddle.get_device()
+    paddle.set_device(device)
+    result = {}
+    with safe_open(filename, framework="pd") as f:
+        for k in f.keys():
+            result[k] = f.get_tensor(k)
+    paddle.set_device(raw_device)
+    return result
 
 def _np2paddle(numpy_dict: Dict[str, np.ndarray], device: str = "cpu") -> Dict[str, paddle.Tensor]:
     if device == "cpu":
